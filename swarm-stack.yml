@@ -1,0 +1,10 @@
+version: "3.8"
+
+services:
+  dataB:
+    image: postgres
+    shm_size: 256mb
+    environment:
+      POSTGRES_USER: postgressUser
+      POSTGRES_PASSWORD: postgressUser
+      POSTGRES_DB: DataBase
