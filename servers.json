@@ -1,0 +1,13 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "dataB-primal",
+      "Group": "Servers",
+      "Host": "dataB-primal",
+      "Port": 5432,
+      "MaintenanceDB": "DataBas",
+      "Username": "postgressUser",
+      "PassFile": "pgpass"
+    }
+  }
+}
