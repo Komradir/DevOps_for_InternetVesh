@@ -1,57 +1,95 @@
 version: "3.8"
 
 services:
-
   dataB-primal:
-    image: postgres
+    image: postgres:15
     networks:
       - overlay-1
     environment:
       POSTGRES_USER: postgressUser
-      POSTGRES_PASSWORD: postgressUser
       POSTGRES_DB: DataBas
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+      PGADMIN_CONFIG_ENHANCED_COOKIE_PROTECTION: 'False'
+      PGDATA: /var/lib/postgresql/data/pgdata
+    secrets:
+      - db_password
+    volumes:
+      - db_data:/var/lib/postgresql/data
     configs:
-      - source: pg_hba_conf
+      - source: pg_hba_v1
         target: /etc/postgresql/pg_hba.conf
-      - source: postgres_conf
+        uid: '999'
+        gid: '999'
+        mode: 0440
+      - source: postgres_v1
         target: /etc/postgresql/postgresql.conf
+        uid: '999'
+        gid: '999'
+        mode: 0440
     command: ["postgres", "-c", "config_file=/etc/postgresql/postgresql.conf", "-c", "hba_file=/etc/postgresql/pg_hba.conf"]
-  dataB-replica:
-    image: postgres
-    environment:
-      POSTGRES_USER: postgressUser
-      POSTGRES_PASSWORD: postgressUser
-      POSTGRES_DB: DataBas
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+    healthcheck: # Обязательно по требованию [2]
+      test: ["CMD-SHELL", "pg_isready -U postgressUser -d DataBas"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
 
   pgadmin:
     image: dpage/pgadmin4:9.8
     networks:
       - overlay-1
     ports:
-       - 5050:80
-    configs:
-    - source: pgadmin-servers-v10
-      target: /pgadmin4/servers.json
+       - 5050:80 # Только этот порт открыт наружу [5]
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
     environment:
-      # Required by pgAdmin
-      PGADMIN_DEFAULT_EMAIL: demo@example.com
-      PGADMIN_DEFAULT_PASSWORD: secret
-
+      PGADMIN_DEFAULT_EMAIL: admin@axenta.tech
+      PGADMIN_DEFAULT_PASSWORD_FILE: /run/secrets/db_password
       # Don't require the user to login
       PGADMIN_CONFIG_SERVER_MODE: 'False'
-
+      MASTER_PASSWORD_REQUIRED: 'False'
       # Don't require a "master" password after logging in
       PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: 'False'
-
-configs:
-  pgadmin-servers-v10:
-    file: ./servers.json
-  pg_hba_conf:
-    file: ./pg_confs/pg_hba.conf
-  postgres_conf:
-    file: ./pg_confs/primal/postgresql.conf
+    secrets:
+      - db_password
+    configs:
+      - source: pgadmin_servers_v1
+        target: /pgadmin4/servers.json
+        uid: '505' # UID пользователя pgadmin в контейнере [2]
+        gid: '505'
+        mode: 0444
+    deploy:
+      replicas: 1
+    healthcheck:
+      test: ["CMD-SHELL", "timeout 1s bash -c ':> /dev/tcp/127.0.0.1/80' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
 networks:
   overlay-1:
     driver: overlay
+    driver_opts:
+      com.docker.network.driver.mtu: 1400 # Решает проблему "бесконечной загрузки" в Swarm
 
+volumes:
+  db_data:
+  pgadmin_data:
+
+secrets:
+  db_password:
+    external: true
+
+
+configs:
+  pg_hba_v1:
+    file: ./pg_confs/pg_hba.conf
+  postgres_v1:
+    file: ./pg_confs/primal/postgresql.conf
+  pgadmin_servers_v1:
+    file: ./servers.json
