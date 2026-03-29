@@ -1,12 +1,21 @@
 version: "3.8"
 
 services:
+
   dataB-primal:
     image: postgres
+    networks:
+      - overlay-1
     environment:
       POSTGRES_USER: postgressUser
       POSTGRES_PASSWORD: postgressUser
       POSTGRES_DB: DataBas
+    configs:
+      - source: pg_hba_conf
+        target: /etc/postgresql/pg_hba.conf
+      - source: postgres_conf
+        target: /etc/postgresql/postgresql.conf
+    command: ["postgres", "-c", "config_file=/etc/postgresql/postgresql.conf", "-c", "hba_file=/etc/postgresql/pg_hba.conf"]
   dataB-replica:
     image: postgres
     environment:
@@ -16,10 +25,12 @@ services:
 
   pgadmin:
     image: dpage/pgadmin4:9.8
+    networks:
+      - overlay-1
     ports:
        - 5050:80
     configs:
-    - source: pgadmin-servers-v6
+    - source: pgadmin-servers-v10
       target: /pgadmin4/servers.json
     environment:
       # Required by pgAdmin
@@ -33,5 +44,14 @@ services:
       PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: 'False'
 
 configs:
-  pgadmin-servers-v6:
+  pgadmin-servers-v10:
     file: ./servers.json
+  pg_hba_conf:
+    file: ./pg_confs/pg_hba.conf
+  postgres_conf:
+    file: ./pg_confs/primal/postgresql.conf
+
+networks:
+  overlay-1:
+    driver: overlay
+

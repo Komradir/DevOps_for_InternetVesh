@@ -7,7 +7,7 @@
       "Port": 5432,
       "MaintenanceDB": "DataBas",
       "Username": "postgressUser",
-      "PassFile": "pgpass"
+      "Password": "postgressUser"
     }
   }
 }
